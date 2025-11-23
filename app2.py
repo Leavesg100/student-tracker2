@@ -6,7 +6,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 import altair as alt
 from io import StringIO
-import matplotlib # Required for pandas styling functions like background_gradient
 
 # --- Configuration and Setup ---
 st.set_page_config(
@@ -35,12 +34,8 @@ def process_data(df_raw):
         return pd.DataFrame()
 
     df = df_raw.copy()
-    
-    # Ensure score columns are numeric (coercing errors for robustness)
-    for col in CATEGORY_COLS:
-        df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0).astype(int)
 
-    # 1. Calculate Total Score (Max 70)
+    # 1. Calculate Total Score
     df['Total Score'] = df[CATEGORY_COLS].sum(axis=1)
 
     # 2. Calculate Risk Category
@@ -86,57 +81,12 @@ def process_data(df_raw):
         
     return df.sort_values(by='Date', ascending=False)
 
-def process_chatbot_query(query):
-    """Rule-based logic for the chatbot."""
-    if st.session_state['df'].empty:
-        return "I need data loaded to answer specific questions. Please use the 'Upload Data' tab first."
-
-    df = st.session_state['df']
-    
-    # Define rules and actions
-    if "high risk" in query:
-        high_risk_students = df[df['Risk Category'] == 'High Risk']['Student'].unique()
-        if len(high_risk_students) > 0:
-            return "The following students are currently flagged as **High Risk**: " + ", ".join(high_risk_students) + "."
-        return "There are currently no students flagged as High Risk."
-        
-    elif "average" in query or "avg" in query:
-        avg_score = df['Total Score'].mean()
-        return f"The **average** Total Score across all entries is **{avg_score:.2f}** (out of a maximum of 70)."
-        
-    elif "intervention" in query or "interventions" in query:
-        interventions = df[df['Intervention Details'] != 'None']['Intervention Details'].tolist()
-        if len(interventions) > 0:
-            return "Here are some of the Intervention Details recorded:\n- " + "\n- ".join(interventions[:5]) + " (and more...)"
-        return "No specific intervention details have been recorded (or they are marked as 'None')."
-
-    elif "anomaly" in query:
-        anomalies = df[df['Anomaly'] == 'Yes']['Student'].unique()
-        if len(anomalies) > 0:
-            return f"The following students have entries flagged as **Anomalies**: " + ", ".join(anomalies) + "."
-        return "No anomalies have been flagged in the current dataset."
-
-    elif "summary" in query or "risk category" in query:
-        risk_counts = df['Risk Category'].value_counts()
-        return f"Current **Risk Category Counts**:\n* Stable: {risk_counts.get('Stable', 0)}\n* Monitor: {risk_counts.get('Monitor', 0)}\n* High Risk: {risk_counts.get('High Risk', 0)}"
-
-    # Check for specific student name in the query
-    student_list = df['Student'].unique().tolist()
-    for student in student_list:
-        if student.lower() in query:
-            student_data = df[df['Student'] == student].sort_values('Date', ascending=False).iloc[0]
-            score = student_data['Total Score']
-            risk = student_data['Risk Category']
-            return f"The latest entry for **{student}** shows a **Total Score** of **{score}** (Max 70), placing them in the **{risk}** risk category."
-            
-    return "I'm a rule-based chatbot and can only answer questions related to: **High Risk**, **Average** score, **Intervention** details, **Anomaly** entries, or a general **Summary**. You can also ask for an individual student's score."
-
 
 # --- Tab Functions ---
 
 def tab_upload_data():
     """Tab 1: Upload Data and Initial Processing."""
-    st.header("Upload Student Data")
+    st.header("⬆️ Upload Student Data")
     st.markdown("Upload a CSV file to begin analysis.")
     
     uploaded_file = st.file_uploader(
@@ -171,11 +121,10 @@ def tab_upload_data():
     else:
         st.info("Please upload a CSV file to load data.")
 
----
 
 def tab_add_entry():
     """Tab 2: Manually add a new student record."""
-    st.header("Add New Student Entry")
+    st.header("✍️ Add New Student Entry")
     
     with st.form("new_entry_form"):
         col1, col2 = st.columns(2)
@@ -231,12 +180,11 @@ def tab_add_entry():
                 st.session_state['df'] = process_data(st.session_state['df'])
                 
                 st.success(f"Entry for **{student}** added and data reprocessed.")
-
----
+                st.balloons()
 
 def tab_overview():
     """Tab 3: Key metrics and latest entries."""
-    st.header("Student Overview")
+    st.header("📊 Student Overview")
     
     if st.session_state['df'].empty:
         st.warning("No data loaded. Please upload data or add an entry first.")
@@ -275,11 +223,9 @@ def tab_overview():
         )
     )
 
----
-
 def tab_visuals():
     """Tab 4: Data Visualizations."""
-    st.header("Data Visualizations")
+    st.header("📈 Data Visualizations")
     
     if st.session_state['df'].empty:
         st.warning("No data loaded. Please upload data or add an entry first.")
@@ -335,11 +281,10 @@ def tab_visuals():
     ).interactive()
     st.altair_chart(sentiment_chart, use_container_width=True)
 
----
 
 def tab_interventions():
     """Tab 5: Filtered table of students with intervention details."""
-    st.header("Intervention Tracker")
+    st.header("📋 Intervention Tracker")
     
     if st.session_state['df'].empty:
         st.warning("No data loaded. Please upload data or add an entry first.")
@@ -378,11 +323,9 @@ def tab_interventions():
         )
     )
 
----
-
 def tab_comments():
     """Tab 6: Comments with sentiment analysis and filtering."""
-    st.header("Comments and Sentiment")
+    st.header("💬 Comments and Sentiment")
     
     if st.session_state['df'].empty:
         st.warning("No data loaded. Please upload data or add an entry first.")
@@ -424,11 +367,9 @@ def tab_comments():
         .style.applymap(style_sentiment, subset=['Sentiment'])
     )
 
----
-
 def tab_summary():
     """Tab 7: Summary statistics."""
-    st.header("Data Summary")
+    st.header("✨ Data Summary")
     
     if st.session_state['df'].empty:
         st.warning("No data loaded. Please upload data or add an entry first.")
@@ -476,11 +417,9 @@ def tab_summary():
         )
     )
 
----
-
 def tab_search():
     """Tab 8: Search functionality."""
-    st.header("Search Records")
+    st.header("🔍 Search Records")
     
     if st.session_state['df'].empty:
         st.warning("No data loaded. Please upload data or add an entry first.")
@@ -509,11 +448,10 @@ def tab_search():
     else:
         st.info("Start typing a term to search across student names, comments, and intervention details.")
 
----
 
 def tab_scoring_guide():
     """Tab 9: Documentation and data export."""
-    st.header("Scoring Guide and Data Export")
+    st.header("📚 Scoring Guide and Data Export")
 
     # 1. Scoring Guidelines
     st.subheader("Individual Category Scoring (1-10)")
@@ -607,11 +545,9 @@ def tab_scoring_guide():
                 mime='text/csv',
             )
 
----
-
 def tab_all_insights():
     """Tab 10: Advanced insights like anomalies and classification."""
-    st.header("All Insights and Advanced Analytics")
+    st.header("🧠 All Insights and Advanced Analytics")
     
     if st.session_state['df'].empty:
         st.warning("No data loaded. Please upload data or add an entry first.")
@@ -624,7 +560,7 @@ def tab_all_insights():
     anomaly_df = df[df['Anomaly'] == 'Yes']
     
     if not anomaly_df.empty:
-        st.error(f"**{len(anomaly_df)}** entries flagged as potential anomalies.")
+        st.error(f"⚠️ **{len(anomaly_df)}** entries flagged as potential anomalies.")
         st.dataframe(
             anomaly_df[['Date', 'Student', 'Year Group', 'Total Score', 'Sentiment', 'Comments']]
             .sort_values(by='Total Score', ascending=True)
@@ -641,7 +577,7 @@ def tab_all_insights():
     ).head(10)
     
     def highlight_negative(val):
-        """Color code negative sentiment."""
+        """Color negative sentiment."""
         return 'color: red; font-weight: bold' if val < 0 else ''
 
     st.dataframe(
@@ -654,8 +590,7 @@ def tab_all_insights():
     st.subheader("Risk Category Prediction Model (Random Forest)")
     
     # Check for balanced data (at least 5 samples in each class)
-    risk_counts = df['Risk Category'].value_counts()
-    if len(risk_counts) == 3 and all(risk_counts >= 5):
+    if len(df['Risk Category'].unique()) == 3 and all(df['Risk Category'].value_counts() >= 5):
         try:
             # Prepare data
             X = df[CATEGORY_COLS].values
@@ -678,21 +613,17 @@ def tab_all_insights():
             st.markdown("**Classification Report (Predicting Risk Category)**")
             
             # Display report as a table
-            report_df = pd.DataFrame(report).transpose().iloc[:-3, :] # Exclude accuracy, macro/weighted avg
+            report_df = pd.DataFrame(report).transpose().iloc[:-1, :] # Exclude accuracy/macro avg/weighted avg
             st.dataframe(report_df.style.format("{:.2f}"))
             
             # Feature Importance
             st.markdown("**Feature Importance**")
             feature_imp = pd.Series(model.feature_importances_, index=CATEGORY_COLS).sort_values(ascending=False)
             
-            # Explicitly name the columns for Altair after reset_index()
-            feature_imp_df = feature_imp.reset_index()
-            feature_imp_df.columns = ['Category', 'Importance Score'] 
-            
-            feature_chart = alt.Chart(feature_imp_df).mark_bar().encode(
-                x=alt.X('Category', title="Category"),
-                y=alt.Y('Importance Score', title="Importance Score"),
-                tooltip=['Category', 'Importance Score']
+            feature_chart = alt.Chart(feature_imp.reset_index()).mark_bar().encode(
+                x=alt.X('index', title="Category"),
+                y=alt.Y('0', title="Importance Score"),
+                tooltip=['index', '0']
             ).properties(title="Importance of Features in Predicting Risk")
             st.altair_chart(feature_chart, use_container_width=True)
             
@@ -700,13 +631,12 @@ def tab_all_insights():
             st.error(f"Error training/evaluating Random Forest: {e}")
             st.info("Ensure all category columns are numeric and data is clean.")
     else:
-        st.warning(f"Not enough balanced data to train the Random Forest Classifier. Need at least 5 entries in each of the 3 risk categories. Current counts: {risk_counts.to_dict()}")
+        st.warning("Not enough balanced data to train the Random Forest Classifier (need at least 5 entries in each of the 3 risk categories).")
 
----
 
 def tab_chatbot():
     """Tab 11: Rule-based chatbot."""
-    st.header("Student Data Chatbot")
+    st.header("🤖 Student Data Chatbot")
 
     if st.session_state['df'].empty:
         st.warning("No data loaded. Chatbot functionality is limited. Please upload data.")
@@ -753,10 +683,55 @@ def tab_chatbot():
         with st.chat_message("assistant"):
             st.markdown(response)
 
+def process_chatbot_query(query):
+    """Rule-based logic for the chatbot."""
+    if st.session_state['df'].empty:
+        return "I need data loaded to answer specific questions. Please use the 'Upload Data' tab first."
+
+    df = st.session_state['df']
+    
+    # Define rules and actions
+    if "high risk" in query:
+        high_risk_students = df[df['Risk Category'] == 'High Risk']['Student'].unique()
+        if len(high_risk_students) > 0:
+            return "The following students are currently flagged as **High Risk**: " + ", ".join(high_risk_students) + "."
+        return "There are currently no students flagged as High Risk."
+        
+    elif "average" in query or "avg" in query:
+        avg_score = df['Total Score'].mean()
+        return f"The **average** Total Score across all entries is **{avg_score:.2f}** (out of a maximum of 70)."
+        
+    elif "intervention" in query or "interventions" in query:
+        interventions = df[df['Intervention Details'] != 'None']['Intervention Details'].tolist()
+        if len(interventions) > 0:
+            return "Here are some of the Intervention Details recorded:\n- " + "\n- ".join(interventions[:5]) + " (and more...)"
+        return "No specific intervention details have been recorded (or they are marked as 'None')."
+
+    elif "anomaly" in query:
+        anomalies = df[df['Anomaly'] == 'Yes']['Student'].unique()
+        if len(anomalies) > 0:
+            return f"The following students have entries flagged as **Anomalies**: " + ", ".join(anomalies) + "."
+        return "No anomalies have been flagged in the current dataset."
+
+    elif "summary" in query or "risk category" in query:
+        risk_counts = df['Risk Category'].value_counts()
+        return f"Current **Risk Category Counts**:\n* Stable: {risk_counts.get('Stable', 0)}\n* Monitor: {risk_counts.get('Monitor', 0)}\n* High Risk: {risk_counts.get('High Risk', 0)}"
+
+    # Check for specific student name in the query
+    student_list = df['Student'].unique().tolist()
+    for student in student_list:
+        if student.lower() in query:
+            student_data = df[df['Student'] == student].sort_values('Date', ascending=False).iloc[0]
+            score = student_data['Total Score']
+            risk = student_data['Risk Category']
+            return f"The latest entry for **{student}** shows a **Total Score** of **{score}** (Max 70), placing them in the **{risk}** risk category."
+            
+    return "I'm a rule-based chatbot and can only answer questions related to: **High Risk**, **Average** score, **Intervention** details, **Anomaly** entries, or a general **Summary**. You can also ask for an individual student's score."
+
 
 # --- Main App Execution ---
 
-st.title("Student Behaviour Tracker")
+st.title("Student Behaviour Tracker 🎓")
 
 # Create the tabs
 tab_names = [
@@ -778,4 +753,5 @@ with tabs[6]: tab_summary()
 with tabs[7]: tab_search()
 with tabs[8]: tab_scoring_guide()
 with tabs[9]: tab_all_insights()
+
 with tabs[10]: tab_chatbot()
