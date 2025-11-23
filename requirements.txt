@@ -3,3 +3,4 @@ pandas
 textblob
 scikit-learn
 altair
+matplotlib
